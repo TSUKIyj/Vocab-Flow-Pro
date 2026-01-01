@@ -3,146 +3,302 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vocab Flow Pro | 雲端深度詞典版</title>
+    <title>Vocab Flow Pro | 雲端同步版</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     <style>
-        :root { --primary: #3b82f6; --bg: #f8fafc; --card: #ffffff; --text: #0f172a; --lv0: #f43f5e; --lv1: #f59e0b; --lv2: #10b981; }
-        * { box-sizing: border-box; transition: 0.2s ease; }
-        body { font-family: 'PingFang TC', sans-serif; background: var(--bg); margin: 0; padding: 20px; display: flex; justify-content: center; }
-        .container { width: 100%; max-width: 550px; }
-        .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
-        .stat-card { background: white; padding: 15px; border-radius: 16px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border-bottom: 4px solid transparent; }
-        .stat-card.lv0 { border-color: var(--lv0); } .stat-card.lv1 { border-color: var(--lv1); } .stat-card.lv2 { border-color: var(--lv2); }
+        :root {
+            --primary: #3b82f6;
+            --primary-soft: #eff6ff;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #0f172a;
+            --text-sub: #64748b;
+            --lv0: #f43f5e;
+            --lv1: #f59e0b;
+            --lv2: #10b981;
+        }
+
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'PingFang TC', -apple-system, sans-serif;
+            background: var(--bg); color: var(--text-main);
+            margin: 0; min-height: 100vh; padding: 20px;
+            display: flex; justify-content: center;
+        }
+
+        .container { width: 100%; max-width: 550px; display: flex; flex-direction: column; }
+
+        .stats-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 25px; }
+        .stat-card { background: var(--card-bg); padding: 15px; border-radius: 16px; text-align: center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border-bottom: 4px solid transparent; }
+        .stat-card.lv0 { border-color: var(--lv0); }
+        .stat-card.lv1 { border-color: var(--lv1); }
+        .stat-card.lv2 { border-color: var(--lv2); }
         .stat-card b { font-size: 20px; display: block; }
-        .search-box { background: white; padding: 25px; border-radius: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); margin-bottom: 25px; }
-        input.main-input { width: 100%; border: 2px solid #e2e8f0; padding: 15px; border-radius: 15px; font-size: 1.1rem; outline: none; }
-        .res-panel { margin-top: 20px; padding: 20px; background: #fff; border-radius: 20px; display: none; border: 1px solid #e2e8f0; }
-        .dict-group { margin-top: 15px; border-top: 1px solid #f1f5f9; padding-top: 12px; }
-        .dict-label { font-size: 13px; color: #64748b; font-weight: bold; margin-bottom: 8px; display: block; }
-        .chip-container { display: flex; flex-wrap: wrap; gap: 8px; }
-        .chip { background: #eff6ff; color: var(--primary); padding: 6px 14px; border-radius: 20px; font-size: 0.95rem; font-weight: 500; }
-        .tab-group { display: flex; background: #e2e8f0; padding: 5px; border-radius: 14px; margin-bottom: 20px; }
-        .tab { flex: 1; text-align: center; padding: 10px; cursor: pointer; border-radius: 10px; font-size: 14px; color: #64748b; font-weight: 600; }
+
+        .search-section { background: var(--card-bg); padding: 25px; border-radius: 24px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05); margin-bottom: 25px; }
+        .input-box { width: 100%; border: 2px solid #e2e8f0; padding: 15px; font-size: 1.1rem; border-radius: 15px; outline: none; transition: 0.3s; }
+        .input-box:focus { border-color: var(--primary); box-shadow: 0 0 0 4px var(--primary-soft); }
+
+        .result-panel { margin-top: 20px; padding: 20px; background: #fff; border-radius: 20px; display: none; border: 1px solid #e2e8f0; animation: fadeIn 0.4s ease; }
+        .meaning-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+        .meaning-chip { background: var(--primary-soft); color: var(--primary); padding: 6px 14px; border-radius: 20px; font-size: 0.95rem; font-weight: 500; }
+
+        .tabs { display: flex; background: #e2e8f0; padding: 5px; border-radius: 14px; margin-bottom: 20px; }
+        .tab { flex: 1; text-align: center; padding: 10px; cursor: pointer; border-radius: 10px; font-size: 14px; font-weight: 600; color: var(--text-sub); }
         .tab.active { background: white; color: var(--primary); box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-        .list-card { background: white; padding: 18px; border-radius: 20px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #f1f5f9; }
-        .status-dot { width: 14px; height: 14px; border-radius: 50%; cursor: pointer; border: 2px solid #fff; box-shadow: 0 0 0 2px #e2e8f0; }
-        .s-0 { background: var(--lv0); } .s-1 { background: var(--lv1); } .s-2 { background: var(--lv2); }
-        .icon-btn { color: #cbd5e1; cursor: pointer; font-size: 18px; margin-left: 12px; }
+
+        .list-card { background: white; padding: 18px; border-radius: 20px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #f1f5f9; transition: 0.2s; }
+        .edit-input { width: 100%; border: 1px solid var(--primary); border-radius: 8px; padding: 4px 8px; margin-bottom: 4px; font-size: 1rem; outline: none; }
+        
+        .status-indicator { width: 14px; height: 14px; border-radius: 50%; cursor: pointer; border: 2px solid #fff; box-shadow: 0 0 0 2px #e2e8f0; }
+        .status-0 { background: var(--lv0); }
+        .status-1 { background: var(--lv1); }
+        .status-2 { background: var(--lv2); }
+
+        .action-icon { color: #cbd5e1; cursor: pointer; font-size: 18px; margin-left: 12px; transition: 0.2s; }
+        .action-icon:hover { color: var(--primary); }
+        .save-active { color: #f59e0b !important; }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } }
+        #loading { text-align: center; color: var(--text-sub); display: none; margin-bottom: 10px; }
     </style>
 </head>
 <body>
+
 <div class="container">
-    <div class="stats">
+    <header style="text-align: center; margin-bottom: 20px;">
+        <h1 style="margin:0; font-size: 1.6rem; letter-spacing: -1px;">Vocab Flow Pro</h1>
+    </header>
+
+    <div id="loading"><i class="fas fa-sync fa-spin"></i> 同步中...</div>
+
+    <div class="stats-container">
         <div class="stat-card lv0"><span>學習中</span><b id="s0">0</b></div>
         <div class="stat-card lv1"><span>熟悉</span><b id="s1">0</b></div>
         <div class="stat-card lv2"><span>已掌握</span><b id="s2">0</b></div>
     </div>
-    <div class="search-box">
-        <input type="text" id="wordInput" class="main-input" list="hints" placeholder="輸入單字，例如: Mastering">
-        <datalist id="hints"><option value="Mastering"><option value="Mastery"><option value="Persistence"></datalist>
-        <div class="res-panel" id="resPanel">
+
+    <div class="search-section">
+        <input type="text" id="wordInput" class="input-box" list="wordHints" placeholder="輸入單字，例如: Persistence" autocomplete="off">
+        <datalist id="wordHints">
+            <option value="Mastering"><option value="Efficiency"><option value="Innovation"><option value="Consistent">
+        </datalist>
+        
+        <div class="result-panel" id="resPanel">
             <div style="display:flex; justify-content:space-between; align-items:center;">
-                <h2 id="origText" style="margin:0;"></h2>
+                <h2 id="origText" style="margin:0; font-size: 1.4rem;"></h2>
                 <div>
-                    <i class="fas fa-volume-up icon-btn" onclick="speakCurrent()"></i>
-                    <i class="fas fa-star icon-btn" id="starBtn" onclick="saveToCloud()"></i>
+                    <i class="fas fa-volume-up action-icon" onclick="speakCurrent()"></i>
+                    <i class="fas fa-star action-icon" id="starBtn" onclick="save()"></i>
                 </div>
             </div>
-            <div class="dict-group">
-                <span class="dict-label">深度釋義 / 同義詞</span>
-                <div class="chip-container" id="meaningChips"></div>
-            </div>
+            <div class="meaning-chips" id="meaningContainer"></div>
         </div>
     </div>
-    <div class="tab-group">
+
+    <div class="tabs">
         <div class="tab active" onclick="setFilter('all', this)">全部</div>
         <div class="tab" onclick="setFilter(0, this)">學習中</div>
         <div class="tab" onclick="setFilter(1, this)">熟悉</div>
         <div class="tab" onclick="setFilter(2, this)">掌握</div>
     </div>
+
     <div id="vocabList" style="padding-bottom: 50px;"></div>
 </div>
 
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
-
 <script>
-    const firebaseConfig = { apiKey: "AIzaSyAs-demo", projectId: "vocab-flow-demo" };
-    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
-    let words = [], current = null, filterType = 'all', editId = null, timer;
-
-    document.getElementById('wordInput').oninput = (e) => {
-        const text = e.target.value.trim();
-        if(!text) { document.getElementById('resPanel').style.display='none'; return; }
-        clearTimeout(timer);
-        timer = setTimeout(async () => {
-            const isChi = /[\u4e00-\u9fa5]/.test(text);
-            const pair = isChi ? 'zh-TW|en' : 'en|zh-TW';
-            const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${pair}`);
-            const data = await res.json();
-            const raw = data.responseData.translatedText;
-            const meanings = raw.split(/[；;，,／/]/).map(s => s.trim()).filter(s => s.length > 0);
-
-            current = { id: Date.now().toString(), orig: text, trans: meanings.join(' · '), meanings: meanings, lv: 0, lang: isChi?'zh-TW':'en' };
-            document.getElementById('origText').innerText = text;
-            document.getElementById('meaningChips').innerHTML = meanings.map(m => `<span class="chip">${m}</span>`).join('');
-            document.getElementById('starBtn').style.color = '#cbd5e1';
-            document.getElementById('resPanel').style.display = 'block';
-        }, 500);
+    // --- Firebase 配置 ---
+    const firebaseConfig = {
+        // 請在此處貼上你從 Firebase 控制台複製的 Config 物件
+        apiKey: "你的APIKEY",
+        authDomain: "你的專案.firebaseapp.com",
+        projectId: "你的專案ID",
+        storageBucket: "你的專案.appspot.com",
+        messagingSenderId: "你的ID",
+        appId: "你的APPID"
     };
 
-    async function saveToCloud() {
-        if(!current) return;
-        document.getElementById('starBtn').style.color = '#f59e0b';
-        await db.collection("demo_users").doc("user_v1").collection("words").doc(current.id).set(current);
-        loadFromCloud();
+    // 初始化 Firebase
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const vocabCol = db.collection('vocab_v6'); // 雲端集合名稱
+
+    let words = [];
+    let current = null;
+    let filterStatus = 'all';
+    let editingId = null;
+    let debounceTimer;
+
+    const input = document.getElementById('wordInput');
+    const resPanel = document.getElementById('resPanel');
+    const loadingEl = document.getElementById('loading');
+
+    // 1. 雲端同步讀取 (即時監聽)
+    function initApp() {
+        loadingEl.style.display = 'block';
+        // 使用 onSnapshot 達成即時同步：電腦一存，手機馬上出現
+        vocabCol.orderBy('createdAt', 'desc').onSnapshot((snapshot) => {
+            words = [];
+            snapshot.forEach((doc) => {
+                words.push({ id: doc.id, ...doc.data() });
+            });
+            render();
+            loadingEl.style.display = 'none';
+        }, (error) => {
+            console.error("雲端讀取錯誤: ", error);
+            alert("同步失敗，請檢查 Firebase 規則。");
+        });
     }
 
-    async function loadFromCloud() {
-        const snap = await db.collection("demo_users").doc("user_v1").collection("words").orderBy("id", "desc").get();
-        words = snap.docs.map(doc => doc.data());
+    // 2. 翻譯邏輯
+    input.addEventListener('input', (e) => {
+        const text = e.target.value.trim();
+        if (!text) { resPanel.style.display = 'none'; return; }
+
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(async () => {
+            const isChi = /[\u4e00-\u9fa5]/.test(text);
+            const pair = isChi ? 'zh-TW|en' : 'en|zh-TW';
+
+            try {
+                const response = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${pair}`);
+                const data = await response.json();
+                const raw = data.responseData.translatedText;
+                const meanings = raw.split(/[；;，,／/]/).map(s => s.trim()).filter(s => s.length > 0);
+
+                current = { 
+                    orig: text, 
+                    trans: meanings.join(' · '), 
+                    lang: isChi ? 'zh-TW' : 'en', 
+                    lv: 0,
+                    createdAt: Date.now() 
+                };
+                
+                document.getElementById('origText').innerText = text;
+                document.getElementById('meaningContainer').innerHTML = meanings.map(m => `<div class="meaning-chip">${m}</div>`).join('');
+                document.getElementById('starBtn').classList.remove('save-active');
+                resPanel.style.display = 'block';
+            } catch (err) {}
+        }, 500);
+    });
+
+    // 3. 雲端儲存
+    async function save() {
+        if (!current) return;
+        const exists = words.some(w => w.orig.toLowerCase() === current.orig.toLowerCase());
+        if (exists) {
+            alert("單字已存在");
+            return;
+        }
+
+        try {
+            await vocabCol.add(current);
+            document.getElementById('starBtn').classList.add('save-active');
+            input.value = "";
+            resPanel.style.display = 'none';
+        } catch (e) {
+            console.error("儲存失敗: ", e);
+        }
+    }
+
+    // 4. 編輯與狀態更新 (直接操作雲端)
+    async function saveEdit(id) {
+        const card = document.querySelector(`[data-id="${id}"]`);
+        const newOrig = card.querySelector('.edit-orig').value;
+        const newTrans = card.querySelector('.edit-trans').value;
+        
+        try {
+            await vocabCol.doc(id).update({
+                orig: newOrig,
+                trans: newTrans
+            });
+            editingId = null;
+        } catch (e) { console.error(e); }
+    }
+
+    async function toggleLv(id) {
+        const word = words.find(w => w.id === id);
+        const nextLv = (word.lv + 1) % 3;
+        try {
+            await vocabCol.doc(id).update({ lv: nextLv });
+        } catch (e) { console.error(e); }
+    }
+
+    async function del(id) {
+        if(confirm('確定從雲端刪除此單字？')) {
+            try {
+                await vocabCol.doc(id).delete();
+            } catch (e) { console.error(e); }
+        }
+    }
+
+    // 5. 基礎功能
+    function startEdit(id) {
+        editingId = id;
         render();
     }
 
-    async function updateStatus(id, lv) { await db.collection("demo_users").doc("user_v1").collection("words").doc(id).update({ lv: (lv + 1) % 3 }); loadFromCloud(); }
-    async function cloudDelete(id) { if(confirm('確定刪除？')) { await db.collection("demo_users").doc("user_v1").collection("words").doc(id).delete(); loadFromCloud(); } }
-    async function cloudSaveEdit(id) {
-        const card = document.querySelector(`[data-id="${id}"]`);
-        const o = card.querySelector('.e-o').value, t = card.querySelector('.e-t').value;
-        await db.collection("demo_users").doc("user_v1").collection("words").doc(id).update({ orig: o, trans: t });
-        editId = null; loadFromCloud();
+    function setFilter(status, el) {
+        filterStatus = status;
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        el.classList.add('active');
+        render();
     }
 
-    function speak(t, l) { const u = new SpeechSynthesisUtterance(t); u.lang = l; window.speechSynthesis.speak(u); }
     function speakCurrent() { if(current) speak(current.orig, current.lang); }
-    function setFilter(f, el) { filterType = f; document.querySelectorAll('.tab').forEach(t => t.classList.remove('active')); el.classList.add('active'); render(); }
+    function speak(text, lang) {
+        const msg = new SpeechSynthesisUtterance(text);
+        msg.lang = lang;
+        window.speechSynthesis.speak(msg);
+    }
 
+    // 6. 渲染引擎
     function render() {
-        const list = document.getElementById('vocabList'), cnt = [0,0,0];
-        words.forEach(w => cnt[w.lv]++);
-        document.getElementById('s0').innerText = cnt[0]; document.getElementById('s1').innerText = cnt[1]; document.getElementById('s2').innerText = cnt[2];
-        const filtered = filterType === 'all' ? words : words.filter(w => w.lv === filterType);
+        const list = document.getElementById('vocabList');
+        const counts = [0, 0, 0];
+        words.forEach(w => { if(w.lv < 3) counts[w.lv]++ });
+        
+        document.getElementById('s0').innerText = counts[0];
+        document.getElementById('s1').innerText = counts[1];
+        document.getElementById('s2').innerText = counts[2];
+
+        const filtered = filterStatus === 'all' ? words : words.filter(w => w.lv === filterStatus);
+
         list.innerHTML = filtered.map(w => {
-            const isEditing = editId === w.id;
-            return `<div class="list-card" data-id="${w.id}">
-                <div style="display:flex; align-items:center; flex:1;">
-                    <div class="status-dot s-${w.lv}" onclick="updateStatus('${w.id}', ${w.lv})"></div>
-                    <div style="flex:1; margin-left:15px;">
-                        ${isEditing ? `<input class="edit-input e-o" value="${w.orig}"><input class="edit-input e-t" value="${w.trans}">` : 
-                        `<b>${w.orig}</b><br><small style="color:#64748b">${w.trans}</small>`}
+            const isEditing = editingId === w.id;
+            return `
+                <div class="list-card" data-id="${w.id}">
+                    <div style="display:flex; align-items:center; gap:15px; flex:1;">
+                        <div class="status-indicator status-${w.lv}" onclick="toggleLv('${w.id}')"></div>
+                        <div style="flex:1;">
+                            ${isEditing ? `
+                                <input type="text" class="edit-input edit-orig" value="${w.orig}">
+                                <input type="text" class="edit-input edit-trans" value="${w.trans}">
+                            ` : `
+                                <div style="font-weight:700; font-size:1.1rem;">${w.orig}</div>
+                                <div style="color:var(--text-sub); font-size:0.9rem;">${w.trans}</div>
+                            `}
+                        </div>
+                    </div>
+                    <div style="display:flex;">
+                        ${isEditing ? `
+                            <i class="fas fa-check action-icon" style="color:var(--lv2)" onclick="saveEdit('${w.id}')"></i>
+                        ` : `
+                            <i class="fas fa-pen action-icon" onclick="startEdit('${w.id}')"></i>
+                            <i class="fas fa-volume-up action-icon" onclick="speak('${w.orig}','${w.lang}')"></i>
+                            <i class="fas fa-trash-alt action-icon" onclick="del('${w.id}')"></i>
+                        `}
                     </div>
                 </div>
-                <div style="display:flex; align-items:center;">
-                    ${isEditing ? `<i class="fas fa-check icon-btn" style="color:var(--lv2)" onclick="cloudSaveEdit('${w.id}')"></i>` : 
-                    `<i class="fas fa-pen icon-btn" onclick="editId='${w.id}';render()"></i>
-                     <i class="fas fa-volume-up icon-btn" onclick="speak('${w.orig}','${w.lang}')"></i>
-                     <i class="fas fa-trash icon-btn" onclick="cloudDelete('${w.id}')"></i>`}
-                </div>
-            </div>`;
+            `;
         }).join('');
     }
-    loadFromCloud();
+
+    // 啟動程式
+    initApp();
 </script>
+
 </body>
 </html>
